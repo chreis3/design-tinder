@@ -1,0 +1,8 @@
+# Fallback-Liste, falls die automatische Ordner-Erkennung (GitHub-API)
+# einmal nicht greift, z. B. weil REPO_OWNER/REPO_NAME in index.html noch
+# nicht gesetzt sind. Normalerweise reicht es, Bilder im images/ Ordner
+# zu droppen — diese Liste musst du dann NICHT mehr pflegen.
+
+skitour-plakat.jpg
+alpendorf-plakat.jpg
+alpwiese-foto.jpg

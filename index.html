@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Design-Tinder</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#121210; --surface:#1B1A17; --ink:#EEEAE0; --ink-soft:#A6A197; --ink-faint:#6E6A5F;
+  --moss:#8FBF77; --brick:#E08160; --moss-wash:rgba(143,191,119,.14); --brick-wash:rgba(224,129,96,.14);
+}
+*{box-sizing:border-box;}
+html,body{ margin:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; height:100%; overflow:hidden; }
+#app{ height:100vh; display:flex; flex-direction:column; padding:14px; padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom)); }
+.view{ display:none; flex:1; flex-direction:column; min-height:0; }
+.view.active{ display:flex; }
+button{ font-family:inherit; cursor:pointer; }
+.head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.progress{ flex:2; height:2px; background:rgba(238,234,224,.12); border-radius:2px; overflow:hidden; }
+.progress-bar{ height:100%; width:0%; background:var(--moss); transition:width .3s; }
+.count{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); white-space:nowrap; }
+.stack{ flex:1; position:relative; display:flex; align-items:center; justify-content:center; min-height:0; }
+.card{ position:absolute; width:92%; height:100%; background:var(--surface); border-radius:14px;
+  box-shadow:0 20px 50px rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center;
+  overflow:hidden; touch-action:none; user-select:none; }
+.card img{ max-width:100%; max-height:100%; object-fit:contain; pointer-events:none; }
+.card.back{ transform:scale(.95) translateY(8px); opacity:.4; box-shadow:none; z-index:1; }
+.card.top{ z-index:2; }
+.stamp{ position:absolute; padding:7px 14px; border:4px solid; border-radius:8px; font-family:'Space Grotesk',sans-serif;
+  font-weight:700; font-size:22px; letter-spacing:.05em; opacity:0; pointer-events:none; text-transform:uppercase;
+  background:rgba(18,18,16,.55); }
+.stamp-a{ top:10%; left:6%; color:var(--moss); border-color:var(--moss); transform:rotate(-14deg); }
+.stamp-r{ top:10%; right:6%; color:var(--brick); border-color:var(--brick); transform:rotate(14deg); }
+.controls{ display:flex; align-items:center; justify-content:center; gap:40px; padding-top:14px; }
+.cbtn{ width:64px; height:64px; border-radius:50%; border:2px solid var(--ink-faint); background:var(--surface);
+  font-size:26px; display:flex; align-items:center; justify-content:center; color:var(--ink); }
+.cbtn.r{ border-color:var(--brick); color:var(--brick); }
+.cbtn.a{ border-color:var(--moss); color:var(--moss); }
+.results h2{ font-family:'Space Grotesk',sans-serif; font-size:18px; margin:0 0 12px; }
+.cols{ flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; min-height:0; }
+.col{ background:var(--surface); border-radius:10px; overflow:hidden; }
+.col-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.05em; padding:8px 12px; text-transform:uppercase; }
+.col.a .col-label{ background:var(--moss-wash); color:var(--moss); }
+.col.r .col-label{ background:var(--brick-wash); color:var(--brick); }
+.mini{ display:grid; grid-template-columns:repeat(auto-fill,minmax(60px,1fr)); gap:6px; padding:10px; }
+.mini img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:4px; }
+.actions{ display:flex; gap:10px; padding-top:12px; flex-wrap:wrap; }
+.btn{ border:1px solid var(--ink-faint); background:transparent; color:var(--ink); padding:11px 18px; font-size:13px;
+  border-radius:4px; flex:1; }
+.btn.primary{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.empty{ margin:auto; text-align:center; color:var(--ink-faint); font-family:'IBM Plex Mono',monospace; font-size:13px; padding:20px; max-width:320px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="v-present" class="view active">
+    <div class="head">
+      <div class="title" id="title"></div>
+      <div class="progress"><div class="progress-bar" id="pb"></div></div>
+      <div class="count" id="pc"></div>
+    </div>
+    <div class="stack" id="stack"><div class="empty">Lade Bilder …</div></div>
+    <div class="controls">
+      <button class="cbtn r" id="br">✕</button>
+      <button class="cbtn a" id="ba">✓</button>
+    </div>
+  </section>
+  <section id="v-results" class="view results">
+    <h2 id="rtitle"></h2>
+    <div class="cols">
+      <div class="col a"><div class="col-label">✓ Angenommen <span id="ac"></span></div><div class="mini" id="ag"></div></div>
+      <div class="col r"><div class="col-label">✕ Abgelehnt <span id="rc"></span></div><div class="mini" id="rg"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="replay">Nochmal spielen</button>
+      <button class="btn primary" id="exportBtn">Als Bild senden</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* -----------------------------------------------------------------------
+   Diese Datei bleibt für immer unverändert.
+   Für einen neuen Workshop: einfach Bilder im images/ Ordner austauschen.
+   Die App liest den Ordnerinhalt automatisch über die GitHub-API aus.
+
+   EINMALIG beim Einrichten ausfüllen (dann nie wieder anfassen):
+----------------------------------------------------------------------- */
+const REPO_OWNER = 'DEIN-GITHUB-NAME';
+const REPO_NAME  = 'DEIN-REPO-NAME';
+
+const params = new URLSearchParams(location.search);
+const TITLE = params.get('title') || 'Design-Tinder';
+document.getElementById('title').textContent = TITLE;
+
+let IMAGES = [];
+let queue = [], idx = 0, accepted = [], rejected = [];
+
+async function listFromGithub(){
+  if (!REPO_OWNER || !REPO_NAME || REPO_OWNER === 'DEIN-GITHUB-NAME') return [];
+  const res = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/images`,
+    { cache: 'no-store' }
+  );
+  if (!res.ok) return [];
+  const list = await res.json();
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(f => f.type === 'file' && /\.(jpe?g|png|webp|gif)$/i.test(f.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(f => f.download_url);
+}
+
+async function listFromManifest(){
+  try{
+    const res = await fetch('images.txt', { cache: 'no-store' });
+    if (!res.ok) return [];
+    const text = await res.text();
+    return text.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length && !l.startsWith('#'))
+      .map(f => 'images/' + f.split('/').map(encodeURIComponent).join('/'));
+  }catch(e){ return []; }
+}
+
+async function loadManifest(){
+  try{ IMAGES = await listFromGithub(); }catch(e){ IMAGES = []; }
+  if (IMAGES.length === 0){
+    try{ IMAGES = await listFromManifest(); }catch(e){ IMAGES = []; }
+  }
+  if (IMAGES.length === 0){
+    document.getElementById('stack').innerHTML =
+      '<div class="empty">Keine Bilder gefunden.<br>Prüfe den images/ Ordner (und ggf. REPO_OWNER / REPO_NAME in index.html).</div>';
+    return;
+  }
+  start();
+}
+
+function shuffle(a){
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function start(){
+  queue = shuffle(IMAGES); idx = 0; accepted = []; rejected = [];
+  document.getElementById('v-results').classList.remove('active');
+  document.getElementById('v-present').classList.add('active');
+  render();
+}
+
+function render(){
+  const total = queue.length;
+  document.getElementById('pb').style.width = total ? Math.round(idx / total * 100) + '%' : '0%';
+  document.getElementById('pc').textContent = total ? (Math.min(idx + 1, total)) + ' / ' + total : '0 / 0';
+  const stack = document.getElementById('stack');
+  stack.innerHTML = '';
+  if (idx >= total){ showResults(); return; }
+  const nextUrl = queue[idx + 1];
+  if (nextUrl){
+    const back = document.createElement('div');
+    back.className = 'card back';
+    back.innerHTML = '<img crossorigin="anonymous" src="' + nextUrl + '">';
+    stack.appendChild(back);
+  }
+  const top = document.createElement('div');
+  top.className = 'card top';
+  top.innerHTML = '<img crossorigin="anonymous" src="' + queue[idx] + '"><div class="stamp stamp-a" id="sa">Angenommen</div><div class="stamp stamp-r" id="sr">Abgelehnt</div>';
+  stack.appendChild(top);
+  attachDrag(top);
+}
+
+function attachDrag(card){
+  let sx = 0, dx = 0, dragging = false;
+  const sa = card.querySelector('#sa'), sr = card.querySelector('#sr');
+  function down(e){ dragging = true; const p = e.touches ? e.touches[0] : e; sx = p.clientX; card.style.transition = 'none'; }
+  function move(e){
+    if (!dragging) return;
+    const p = e.touches ? e.touches[0] : e;
+    dx = p.clientX - sx;
+    card.style.transform = 'translate(' + dx + 'px,0) rotate(' + (dx / 18) + 'deg)';
+    const r = Math.min(Math.abs(dx) / 100, 1);
+    if (dx > 0){ sa.style.opacity = r; sr.style.opacity = 0; } else { sr.style.opacity = r; sa.style.opacity = 0; }
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+    card.style.transition = 'transform .28s ease, opacity .28s ease';
+    if (Math.abs(dx) > 90){ decide(dx > 0 ? 'a' : 'r', card); }
+    else { card.style.transform = 'translate(0,0)'; sa.style.opacity = 0; sr.style.opacity = 0; }
+    dx = 0;
+  }
+  card.addEventListener('pointerdown', down);
+  card.addEventListener('pointermove', move);
+  card.addEventListener('pointerup', up);
+  card.addEventListener('pointerleave', () => { if (dragging) up(); });
+}
+
+function decide(dir, cardEl){
+  if (idx >= queue.length) return;
+  const item = queue[idx];
+  if (dir === 'a') accepted.push(item); else rejected.push(item);
+  const el = cardEl || document.querySelector('.card.top');
+  if (el){
+    el.style.transition = 'transform .26s ease, opacity .26s ease';
+    const dx = dir === 'a' ? 700 : -700;
+    el.style.transform = 'translate(' + dx + 'px,-20px) rotate(' + (dir === 'a' ? 22 : -22) + 'deg)';
+    el.style.opacity = '0';
+  }
+  idx++;
+  setTimeout(render, el ? 220 : 0);
+}
+
+document.getElementById('ba').onclick = () => decide('a');
+document.getElementById('br').onclick = () => decide('r');
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('v-present').classList.contains('active')) return;
+  if (e.key === 'ArrowRight') decide('a'); else if (e.key === 'ArrowLeft') decide('r');
+});
+
+function showResults(){
+  document.getElementById('v-present').classList.remove('active');
+  document.getElementById('v-results').classList.add('active');
+  document.getElementById('rtitle').textContent = TITLE + ' — Dein Ergebnis';
+  document.getElementById('ac').textContent = '(' + accepted.length + ')';
+  document.getElementById('rc').textContent = '(' + rejected.length + ')';
+  const ag = document.getElementById('ag'); ag.innerHTML = '';
+  accepted.forEach(u => { const im = document.createElement('img'); im.crossOrigin = 'anonymous'; im.src = u; ag.appendChild(im); });
+  const rg = document.getElementById('rg'); rg.innerHTML = '';
+  rejected.forEach(u => { const im = document.createElement('img'); im.crossOrigin = 'anonymous'; im.src = u; rg.appendChild(im); });
+}
+
+document.getElementById('replay').onclick = start;
+
+document.getElementById('exportBtn').onclick = async () => {
+  const W = 1200, H = 1500;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#121210'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#EEEAE0'; ctx.font = '700 34px sans-serif'; ctx.fillText(TITLE, 40, 60);
+  const sections = [
+    { label: 'ANGENOMMEN (' + accepted.length + ')', items: accepted, y: 100, color: '#8FBF77' },
+    { label: 'ABGELEHNT (' + rejected.length + ')', items: rejected, y: 100 + (H - 160) / 2 + 30, color: '#E08160' }
+  ];
+  const rowH = (H - 200) / 2;
+  for (const sec of sections){
+    ctx.fillStyle = sec.color; ctx.font = '600 20px monospace'; ctx.fillText(sec.label, 40, sec.y);
+    const perRow = 5, gap = 10, cell = (W - 80 - gap * (perRow + 1)) / perRow;
+    const imgs = await Promise.all(sec.items.map(u => new Promise(res => {
+      const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = u;
+    })));
+    imgs.forEach((im, i) => {
+      if (!im) return;
+      const row = Math.floor(i / perRow), col = i % perRow;
+      const cx = 40 + gap + col * (cell + gap), cy = sec.y + 20 + row * (cell + gap);
+      if (cy + cell > sec.y + rowH - 20) return;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(cx, cy, cell, cell); ctx.clip();
+      const s = Math.max(cell / im.width, cell / im.height);
+      const iw = im.width * s, ih = im.height * s;
+      ctx.drawImage(im, cx + (cell - iw) / 2, cy + (cell - ih) / 2, iw, ih);
+      ctx.restore();
+    });
+  }
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ergebnis.png'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  });
+};
+
+loadManifest();
+</script>
+</body>
+</html>
